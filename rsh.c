@@ -1,33 +1,36 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <spawn.h>   
-#include <sys/wait.h> 
-#include <unistd.h>  
-#include <string.h> 
+#include <spawn.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <string.h>
 
-#define MAX_COMMANDS 12
-#define MAX_ARGS 20
-#define LINE_SIZE 256
+#define N 12               // number of allowed commands
+#define MAX_ARGS 20        // maximum arguments per command
+#define LINE_SIZE 256      // maximum input line length
 
-extern char **environ;  
+extern char **environ;
 
-//List of allowed commands in rsh
-char *allowed[N] = {"cp","touch","mkdir","ls","pwd","cat","grep","chmod","diff","cd","exit","help"};
+char *allowed[N] = {
+    "cp", "touch", "mkdir", "ls", "pwd",
+    "cat", "grep", "chmod", "diff",
+    "cd", "exit", "help"
+};
 
-//Check if a command is in the allowed list
+//Return 1 if cmd is in allowed[], else 0
 int isAllowed(const char *cmd) {
-    for (int i = 0; i < MAX_COMMANDS; i++) {
+    for (int i = 0; i < N; i++) {
         if (strcmp(cmd, allowed[i]) == 0) {
-            return 1;  // If found
+            return 1;
         }
     }
-    return 0;  // If not found
+    return 0;
 }
 
-//Print the help message listing allowed commands
+//Print the help listing
 void print_help(void) {
     printf("The allowed commands are:\n");
-    for (int i = 0; i < MAX_COMMANDS; i++) {
+    for (int i = 0; i < N; i++) {
         printf("%d: %s\n", i + 1, allowed[i]);
     }
 }
@@ -37,40 +40,34 @@ int main(void) {
     char *argv[MAX_ARGS + 1];  
 
     while (1) {
-        //Prints shell prompt to stderr so tests ignore it
+        //Prompt on stderr
         fprintf(stderr, "rsh>");
         fflush(stderr);
 
-        //Reads a line from stdin
-        if (!fgets(line, LINE_SIZE, stdin)) {
-            continue;  
-        }
-        //Skips blank lines
-        if (strcmp(line, "\n") == 0) {
+        //Reads a line
+        if (!fgets(line, LINE_SIZE, stdin))
             continue;
-        }
+        if (strcmp(line, "\n") == 0)
+            continue;
 
-        //Removes trailing newline
+        //Strips trailing newline
         size_t len = strlen(line);
-        if (len > 0 && line[len - 1] == '\n') {
+        if (len > 0 && line[len - 1] == '\n')
             line[len - 1] = '\0';
-        }
 
-        //Splits the line into tokens separated by spaces
+        //Tokenize into argv[]
         int argc = 0;
         char *token = strtok(line, " ");
-        while (token != NULL && argc < MAX_ARGS) {
+        while (token && argc < MAX_ARGS) {
             argv[argc++] = token;
             token = strtok(NULL, " ");
         }
-        argv[argc] = NULL;  //argv must end with NULL
+        argv[argc] = NULL;
 
-        //If no command entered, just reprompt
-        if (argc == 0) {
+        if (argc == 0)
             continue;
-        }
 
-        //Handles any built-in commands
+        //The Built‑ins
         if (strcmp(argv[0], "exit") == 0) {
             return 0;
         }
@@ -87,7 +84,7 @@ int main(void) {
             continue;
         }
 
-        //Handles external commands 
+        //First 9 Commands
         if (isAllowed(argv[0])) {
             if (strcmp(argv[0], "cd") != 0 &&
                 strcmp(argv[0], "exit") != 0 &&
@@ -95,7 +92,6 @@ int main(void) {
 
                 pid_t pid;
                 int status;
-                //Will spawn child process to run the command
                 if (posix_spawnp(&pid, argv[0], NULL, NULL, argv, environ) != 0) {
                     printf("NOT ALLOWED!\n");
                 } else {
@@ -105,7 +101,6 @@ int main(void) {
             }
         }
 
-        //If command not allowed, print error
         printf("NOT ALLOWED!\n");
     }
 
